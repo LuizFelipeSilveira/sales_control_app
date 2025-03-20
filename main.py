@@ -1,5 +1,3 @@
-import tkinter as tk
-import ttkbootstrap as ttk
 from utilities import *
 
 
@@ -38,26 +36,26 @@ btn_stl.grid(row=0, column=3, sticky="e")
 notebook_l = ttk.Notebook(left_frame)
 notebook_l.grid()
 
-frame_complete(notebook_l, products, 'Cadastrar','ID', 'Nome', 'Custo', 'Valor')
-frame_complete(notebook_l, products, 'Descadastrar', 'ID')
+frame_complete(notebook_l, 'products', 'Cadastrar','ID', 'Nome', 'Custo', 'Valor')
+frame_complete(notebook_l, 'products', 'Descadastrar', 'ID')
+table_complete(left_frame, 'products')
 
 # Center Frame
 notebook_c = ttk.Notebook(center_frame)
 notebook_c.grid()
 
-frame_complete(notebook_c, clients, 'Cadastrar','ID', 'Nome', 'CEP', 'Telefone')
-frame_complete(notebook_c, clients, 'Descadastrar', 'ID')
+frame_complete(notebook_c, 'clients', 'Cadastrar','ID', 'Nome', 'CEP', 'Telefone')
+frame_complete(notebook_c, 'clients', 'Descadastrar', 'ID')
+table_complete(center_frame, 'clients')
 
 # Right Frame
 notebook_r = ttk.Notebook(right_frame)
 notebook_r.grid()
 
-frame_complete(notebook_r, sells, 'Cadastrar','ID', 'Cliente', 'Produto', 'Quantidade')
-frame_complete(notebook_r, sells, 'Descadastrar', 'ID')
+frame_complete(notebook_r, 'sales', 'Cadastrar','ID', 'Cliente', 'Produto', 'Quantidade')
+frame_complete(notebook_r, 'sales', 'Descadastrar', 'ID')
+table_complete(right_frame, 'sales')
 
 # Run App
 root.mainloop()
-
-print(products)
-print(clients)
-print(sells)
+db._close_conn()
