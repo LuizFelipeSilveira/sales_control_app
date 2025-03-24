@@ -1,3 +1,4 @@
+import datetime
 import tkinter as tk
 import ttkbootstrap as ttk
 from ttkbootstrap.tableview import Tableview
@@ -24,7 +25,7 @@ class Database():
     (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
-        cep INTEGER NOT NULL,
+        cep TEXT NOT NULL,
         phone TEXT NOT NULL
     )
     """)
@@ -32,7 +33,7 @@ class Database():
         self.cursor.execute("""
     CREATE TABLE IF NOT EXISTS sales
     (
-        id INTEGER PRIMARY KEY NOT NULL,
+        id INTEGER NOT NULL,
         id_client TEXT NOT NULL,
         id_product TEXT NOT NULL,
         date TEXT NOT NULL,
@@ -42,14 +43,61 @@ class Database():
         FOREIGN KEY (id_product) REFERENCES products(id)
     )
     """)
+
+
+    def add(self, reference_list, table):
+
+        print(reference_list)
+        match table:
+            case 'products':
+                try:
+                    sql=("""INSERT INTO products (id, name, cost, price)
+                            VALUES (?, ?, ?, ?)""")
+                    self.cursor.execute(sql, reference_list) 
+                except:
+                    pass              
+
+            case 'clients':
+                try:
+                    sql=("""INSERT INTO clients (id, name, cep, phone)
+                        VALUES (?, ?, ?, ?)""")
+                    self.cursor.execute(sql, reference_list)  
+                except:
+                    pass
+
+            case 'sales':
+
+                try:
+                    sql=("""INSERT INTO sales (id, id_client, id_product, date, quantity, total_value)
+                        VALUES (?, ?, ?, ?, ?, ?)""")
+                    self.cursor.execute(sql, reference_list) 
+                except:
+                    pass
+
+        self.conn.commit()           
     
 
-    def add(self):
-        pass
-    
-
-    def remove(self):
-        pass
+    def remove(self, reference_value, table):
+        match table:
+            case 'products':
+                try:
+                    sql = ("""DELETE FROM products WHERE id = ?""")
+                    self.cursor.execute(sql, reference_value)
+                except:
+                    pass
+            case 'clients':
+                try:
+                    sql = ("""DELETE FROM clients WHERE id = ?""")
+                    self.cursor.execute(sql, reference_value)
+                except:
+                    pass
+            case 'sales':
+                try:
+                    sql = ("""DELETE FROM sales WHERE id = ?""")
+                    self.cursor.execute(sql, reference_value)
+                except:
+                    pass
+        self.conn.commit()
 
 
     def fetch(self):
@@ -76,11 +124,52 @@ class App():
 
         self.entries = list()
 
-        db = Database()
+        self.db = Database()
 
-    def send_to_db(self):
+    def _send_to_db(self, table):
         values = [entry.get() for entry in self.entries]
+        values = self._validate_values(values)
 
+        if values[0] != '' and values[1] != '' and values[2] != '' and values[3] != '':
+            self.db.add(values[0:4],'products')
+            for i in range(4):
+                self.entries[i].delete(0, tk.END)
+        
+        elif values[4] != '':
+            self.db.remove(values[4], 'products')
+            self.entries[4].delete(0, tk.END)
+
+        elif values[5] != '' and values[6] != '' and values[7] != '' and values[8] != '':
+            self.db.add(values[5:9],'clients')
+            for i in range(5,9):
+                self.entries[i].delete(0, tk.END)
+        
+        elif values[9] != '':
+            self.db.remove(values[9], 'clients')
+            self.entries[9].delete(0, tk.END)
+        
+        elif values[10] != '' and values[11] != '' and values[12] != '' and values[13] != '':          
+            id_product = values[12]
+
+            sql = """SELECT price FROM products WHERE id = ?"""
+
+            self.db.cursor.execute(sql, (id_product,))
+
+            price_product = self.db.cursor.fetchone()
+            price_product = price_product[0]
+            total = price_product * values[13]
+            values.insert(14, total)
+            values.insert(13, datetime.date.today())
+
+            self.db.add(values[10:16],'sales')
+            
+            for i in range(10,14):
+                self.entries[i].delete(0, tk.END)
+
+        elif values[14] != '':
+            self.db.remove(values[14], 'sales')
+            self.entries[14].delete(0, tk.END)
+            
     
     def add_frame(self, frame, widgets=None):
         
@@ -147,11 +236,11 @@ class App():
                                                               'entry_3':{'row':2, 'column':1},
                                                               'label_4':{'text':'Valor', 'row':3, 'column':0},
                                                               'entry_4':{'row':3, 'column':1},
-                                                              'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self.send_to_db}})
+                                                              'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self._send_to_db}})
                 
                 frame_remove = self.add_frame(notebook, widgets={'label_1':{'text':'Id', 'row':0, 'column':0},
                                                                   'entry_1':{'row':0, 'column':1},
-                                                                  'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e'}})
+                                                                  'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self._send_to_db}})
                 notebook.add(frame_add, text='Cadastrar')
                 notebook.add(frame_remove, text='Descadastrar')
 
@@ -164,11 +253,11 @@ class App():
                                                               'entry_3':{'row':2, 'column':1},
                                                               'label_4':{'text':'Telefone', 'row':3, 'column':0},
                                                               'entry_4':{'row':3, 'column':1},                                                             
-                                                              'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self.send_to_db}})
+                                                              'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self._send_to_db}})
                 
                 frame_remove = self.add_frame(notebook, widgets={'label_1':{'text':'Id', 'row':0, 'column':0},
                                                                   'entry_1':{'row':0, 'column':1},
-                                                                  'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e'}})
+                                                                  'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self._send_to_db}})
                 notebook.add(frame_add, text='Cadastrar')
                 notebook.add(frame_remove, text='Descadastrar')
 
@@ -181,11 +270,11 @@ class App():
                                                               'entry_3':{'row':2, 'column':1},
                                                               'label_4':{'text':'Quantidade', 'row':3, 'column':0},
                                                               'entry_4':{'row':3, 'column':1},
-                                                              'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self.send_to_db}})
+                                                              'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self._send_to_db}})
                 
                 frame_remove = self.add_frame(notebook, widgets={'label_1':{'text':'Id', 'row':0, 'column':0},
                                                                   'entry_1':{'row':0, 'column':1},
-                                                                  'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e'}})
+                                                                  'button':{'text':'Enviar', 'row':4, 'column':1, 'sticky':'e', 'command':self._send_to_db}})
                 notebook.add(frame_add, text='Cadastrar')
                 notebook.add(frame_remove, text='Descadastrar')
 
@@ -196,7 +285,7 @@ class App():
 
 
     def _add_button(self, frame, parameters=dict()):
-        button = ttk.Button(frame, text=parameters['text'], padding=8)
+        button = ttk.Button(frame, text=parameters['text'], padding=8, command=parameters['command'])
         button.grid(row=parameters['row'], column=parameters['column'], padx=5, pady=5, sticky=parameters['sticky'])
     
 
@@ -216,9 +305,30 @@ class App():
                           pagesize=parameters['pagesize'],
                           searchable=parameters['searchable'])
     
+    def _validate_values(self, reference_list):
+            for i in range(len(reference_list)):
+                if i == 0 or i == 1 or i == 4 or i == 5 or i == 6 or i == 9 or i == 10 or i == 10 or i == 11 or i == 12 or i == 14:
+                    reference_list[i] = reference_list[i].upper()
+
+                elif i == 2 or i == 3:
+                    if ',' in reference_list[i]:
+                        reference_list[i] = reference_list[i].replace(',','.')
+                    try:
+                        reference_list[i] = float(reference_list[i])
+                    except:
+                        reference_list[i] = ''
+
+                elif i == 13:
+                    try:
+                        reference_list[i] = int(reference_list[i])
+                    except:
+                        reference_list[i] = ''
+            return reference_list
+
 
     def run(self):
         self.root.mainloop()
+        self.db._close_conn()
 
 
 
