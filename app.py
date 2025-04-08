@@ -47,7 +47,6 @@ class Database():
 
     def add(self, reference_list, table):
 
-        print(reference_list)
         match table:
             case 'products':
                 try:
@@ -100,8 +99,10 @@ class Database():
         self.conn.commit()
 
 
-    def fetch(self):
-        pass
+    def fetch(self, table):
+        self.cursor.execute(f"""SELECT * FROM {table}""")
+        data = self.cursor.fetchall()
+        return data
 
 
     def _open_conn(self):
@@ -115,6 +116,7 @@ class Database():
 class App():
     def __init__(self):
         self.root = ttk.Window(themename="solar")
+        self.root.title('Sales Control')
 
         self.root.columnconfigure(0, weight=1)
         self.root.columnconfigure(1, weight=1)
@@ -126,7 +128,7 @@ class App():
 
         self.db = Database()
 
-    def _send_to_db(self, table):
+    def _send_to_db(self):
         values = [entry.get() for entry in self.entries]
         values = self._validate_values(values)
 
@@ -134,19 +136,34 @@ class App():
             self.db.add(values[0:4],'products')
             for i in range(4):
                 self.entries[i].delete(0, tk.END)
+            
+            data = self.db.fetch('products')
+            print(data)
+            self._add_table(left_frame, parameters={'coldata':['ID', 'Nome', 'Custo', 'Valor'],
+                                                    'rowdata':data})
         
         elif values[4] != '':
             self.db.remove(values[4], 'products')
             self.entries[4].delete(0, tk.END)
+            data = self.db.fetch('products')
+            self._add_table(left_frame, parameters={'coldata':['ID', 'Nome', 'Custo', 'Valor'],
+                                                    'rowdata':data})
+        
 
         elif values[5] != '' and values[6] != '' and values[7] != '' and values[8] != '':
             self.db.add(values[5:9],'clients')
             for i in range(5,9):
                 self.entries[i].delete(0, tk.END)
+            data = self.db.fetch('clients')
+            self._add_table(center_frame, parameters={'coldata':['ID', 'Nome', 'CEP', 'Telefone'],
+                                                    'rowdata':data})
         
         elif values[9] != '':
             self.db.remove(values[9], 'clients')
             self.entries[9].delete(0, tk.END)
+            data = self.db.fetch('clients')
+            self._add_table(center_frame, parameters={'coldata':['ID', 'Nome', 'CEP', 'Telefone'],
+                                                    'rowdata':data})
         
         elif values[10] != '' and values[11] != '' and values[12] != '' and values[13] != '':          
             id_product = values[12]
@@ -165,18 +182,27 @@ class App():
             
             for i in range(10,14):
                 self.entries[i].delete(0, tk.END)
+            
+            data = self.db.fetch('sales')
+            self._add_table(right_frame, parameters={'coldata':['ID', 'ID Cliente', 'ID Produto', 'Data', 'Quantidade', 'Valor Total'],
+                                                    'rowdata':data})
 
         elif values[14] != '':
             self.db.remove(values[14], 'sales')
             self.entries[14].delete(0, tk.END)
+            data = self.db.fetch('sales')
+            self._add_table(right_frame, parameters={'coldata':['ID', 'ID Cliente', 'ID Produto', 'Data', 'Quantidade', 'Valor Total'],
+                                                    'rowdata':data})
             
     
     def add_frame(self, frame, widgets=None):
         
         if frame == 'root':
             frame = ttk.Frame(self.root)
+            frame.grid(row=0, column=0, columnspan=3)
         else:
             frame = ttk.Frame(frame)
+            frame.grid(row=0, column=0, columnspan=3)
         
         if widgets:
             for key, value in widgets.items():
@@ -301,10 +327,14 @@ class App():
         table = Tableview(master=frame,
                           coldata=parameters['coldata'],
                           rowdata=parameters['rowdata'],
-                          paginated=parameters['paginated'],
-                          pagesize=parameters['pagesize'],
-                          searchable=parameters['searchable'])
+                          paginated=True,
+                          pagesize=10,
+                          searchable=True,
+                          autoalign=True,
+                          autofit=True)
+        table.grid(row=1, column=0)
     
+
     def _validate_values(self, reference_list):
             for i in range(len(reference_list)):
                 if i == 0 or i == 1 or i == 4 or i == 5 or i == 6 or i == 9 or i == 10 or i == 10 or i == 11 or i == 12 or i == 14:
@@ -337,21 +367,22 @@ class App():
 
 app = App()
 
-app.add_frame(frame='root', widgets={'label':{'text':'Controle',
-                                              'font':('Helvetica', 16),
-                                              'row':0,
-                                              'column':0,
-                                              'columnspan':2}})
+app.add_frame(frame='root', widgets={'button_1':{'text':'Dashboard', 'row':0, 'column':0, 'sticky':'e', 'command':None}})
                                               
 
-
-left_frame = app.add_label_frame(frame='root', row=1, column=0, padding=10, padx=10, pady=10, sticky="nsew", bootstyle="primary", text="Produtos")
+data = app.db.fetch('products')
+left_frame = app.add_label_frame(frame='root', row=1, column=0, padding=10, padx=10, pady=10, sticky="nsew", bootstyle="primary", text="Produtos",widgets={'table':{'coldata':['ID', 'Nome', 'Custo', 'Valor'],
+                                                                                                                                                                    'rowdata':data}})                                                      
 app.add_notebook(left_frame, 'products')
 
-center_frame = app.add_label_frame(frame='root', row=1, column=1, padding=10, padx=10, pady=10, sticky="nsew", bootstyle="primary", text="Clientes")
+data = app.db.fetch('clients')
+center_frame = app.add_label_frame(frame='root', row=1, column=1, padding=10, padx=10, pady=10, sticky="nsew", bootstyle="primary", text="Clientes",widgets={'table':{'coldata':['ID', 'Nome', 'CEP', 'Telefone'],
+                                                                                                                                                                      'rowdata':data}})
 app.add_notebook(center_frame, 'clients')
 
-right_frame = app.add_label_frame(frame='root', row=1, column=2, padding=10, padx=10, pady=10, sticky="nsew", bootstyle="primary", text="Vendas")
+data = app.db.fetch('sales')
+right_frame = app.add_label_frame(frame='root', row=1, column=2, padding=10, padx=10, pady=10, sticky="nsew", bootstyle="primary", text="Vendas",widgets={'table':{'coldata':['ID', 'ID Cliente', 'ID Produto', 'Data', 'Quantidade', 'Valor Total'],
+                                                                                                                                                                   'rowdata':data}})
 app.add_notebook(right_frame, 'sales')
 
 app.run()
