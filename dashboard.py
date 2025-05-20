@@ -3,61 +3,79 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import altair as alt
+import datetime
 
 st.set_page_config(page_title="Dados Gerais", layout='wide')
-st.title("Dados Gerais")
+st.title("Dados de Vendas")
+st.divider()
 
-conn = sqlite3.connect("sales_database.db")
-cursor = conn.cursor
+@st.cache_data
+def get_df():
+    conn = sqlite3.connect("sales_database.db")
+    cursor = conn.cursor
 
-df_sales = pd.read_sql_query("SELECT * FROM sales", conn)
-df_products = pd.read_sql_query("SELECT * FROM products", conn)
-df_clients = pd.read_sql_query("SELECT * FROM clients", conn)
+    sales = pd.read_sql_query("SELECT * FROM sales", conn)
+    sales['date'] = pd.to_datetime(sales['date'], format= '%Y-%m-%d')
+    sales['month'] = sales['date'].dt.month
+    sales['date'] = sales['date'].dt.date
+    products = pd.read_sql_query("SELECT * FROM products", conn)
+    clients = pd.read_sql_query("SELECT * FROM clients", conn)
+    best_products = pd.read_sql_query("SELECT p.name, p.cost, p.price, s.quantity, s.date, s.total_value FROM products as p INNER JOIN sales as s ON p.id = s.id_product", conn) 
+    best_products['date'] = pd.to_datetime(best_products['date']).dt.date
+    best_products['profit'] = (best_products['price'] - best_products['cost']) * best_products['quantity']
 
-df_best_products = pd.read_sql_query("SELECT p.name, p.cost, p.price, s.quantity FROM products as p INNER JOIN sales as s ON p.id = s.id_product", conn) 
-df_best_products['profit'] = (df_best_products['price'] - df_best_products['cost']) * df_best_products['quantity']
+    conn.close()
+    return sales, products, clients, best_products
+
+
+df_sales, df_products, df_clients, df_best_products = get_df()
+
+st.sidebar.subheader('Filtro de dados')
+
+date_range = st.sidebar.slider('Filtro de dados',
+                               label_visibility= 'hidden',
+                               min_value=df_sales['date'].min(),
+                               max_value=df_sales['date'].max(),
+                               value=(df_sales['date'].min(), df_sales['date'].max()),
+                               format='DD/MM/YYYY')
+
+
+df_filter_sales = df_sales[(df_sales['date'] >= date_range[0]) & (df_sales['date'] <= date_range[1])]
+df_filter_best_products = df_best_products[(df_best_products['date'] >= date_range[0]) & (df_best_products['date'] <= date_range[1])]
+
+total_revenue = df_filter_sales['total_value'].sum()
+amount_sales = df_filter_sales.groupby('id')['quantity'].sum().sum()
+avg_ticket = total_revenue/amount_sales
+avg_profit = df_filter_best_products['profit'].mean()
 
 col_1, col_2, col_3, col_4 = st.columns(4)
 
 with col_1:
-    st.metric("Total de Vendas", f"R${df_sales['total_value'].sum():.2f}")
+    st.markdown('#### Faturamento Total')
+    st.markdown(f'##### R$ {total_revenue:.2f}')
 
 with col_2:
-    st.metric("Quantidade de Vendas", f"{df_sales.groupby('id').size().count()}")
+    st.markdown('#### Total de vendas')
+    st.markdown(f'##### {amount_sales}')
 
 with col_3:
-    st.metric("Produtos Cadastrados", df_products.shape[0])
+    st.markdown('#### Ticket Médio')
+    st.markdown(f'##### R$ {avg_ticket:.2f}')
 
 with col_4:
-    st.metric("Clientes Cadastrados", df_clients.shape[0])
+    st.markdown('#### Lucro Médio')
+    st.markdown(f'##### R$ {avg_profit:.2f}')
 
+st.divider()
 
-st.subheader("Faturamento por dia")
-sales_by_day = df_sales.groupby(df_sales['date'])['total_value'].sum()
-st.line_chart(sales_by_day)
+sales_data = df_filter_sales.groupby('date')['total_value'].sum().reset_index()
 
-sold_best = df_best_products.groupby('name')['quantity'].sum().sort_values(ascending=False)
-best_profit = df_best_products.groupby('name')['profit'].sum().sort_values(ascending=False)
+st.subheader('Faturamento por dia :chart:')
+st.line_chart(sales_data, x='date', y='total_value',x_label='Data', y_label='Faturamento (R$)')
 
-df_sold = sold_best.reset_index()
-df_profit = best_profit.reset_index()
+st.divider()
 
-col1, col2 = st.columns(2)
+st.subheader('Faturamento médio por mês')
 
-with col1:
-    st.subheader("Produtos mais vendidos")
-    chart1 = alt.Chart(df_sold).mark_bar().encode(
-        x=alt.X('quantity:Q', title='Quantidade'),
-        y=alt.Y('name:N', sort='-x', title='Produto'),
-        tooltip=['name', 'quantity']
-    ).properties(height=400)
-    st.altair_chart(chart1, use_container_width=True)
-
-with col2:
-    st.subheader("Produtos mais lucrativos")
-    chart2 = alt.Chart(df_profit).mark_bar(color='orange').encode(
-        x=alt.X('profit:Q', title='Lucro'),
-        y=alt.Y('name:N', sort='-x', title='Produto'),
-        tooltip=['name', 'profit']
-    ).properties(height=400)
-    st.altair_chart(chart2, use_container_width=True)
+sales_data = df_filter_sales.groupby('month')['total_value'].mean().reset_index()
+st.bar_chart(sales_data, x='month', y='total_value', x_label= 'Mês', y_label='Faturamento Médio (R$)')
